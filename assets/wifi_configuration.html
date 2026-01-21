@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Network Configuration</title>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Security-Policy" content="referrer no-referrer">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+
+    <style>
+*{box-sizing:border-box;font-family:Arial,Helvetica,sans-serif}
+body{
+    margin:0;
+    background:#f2f2f2;
+    color:#222;
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+    align-items:flex-start;
+}
+.page{
+    width:100%;
+    max-width:900px;
+    padding:24px 16px;
+    margin:0 auto;
+}
+.fw-link{
+    text-align:center;
+    margin-top:14px;
+    font-size:13px;
+}
+.card{
+	width:100%;
+    background:#fff;
+    border:1px solid #ccc;
+    border-radius:8px;
+    padding:16px;
+}
+.card-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    border-bottom:1px solid #ddd;
+    padding-bottom:8px;
+    margin-bottom:12px;
+}
+.brand{display:flex;align-items:center;gap:8px}
+.brand-logo{
+    width:32px;height:32px;
+    background:#007bff;
+    color:#fff;
+    border-radius:50%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:bold;
+}
+.brand-text-main{font-size:16px;font-weight:bold}
+.brand-text-sub{font-size:12px;color:#666}
+.language-switch select{padding:4px}
+
+.tabs{display:flex;gap:6px;margin-bottom:10px}
+.tab{
+    padding:6px 12px;
+    border:1px solid #ccc;
+    background:#eee;
+    cursor:pointer;
+    font-size:13px;
+}
+.tab.active{
+    background:#fff;
+    border-bottom:2px solid #007bff;
+    font-weight:bold;
+}
+
+.tab-content{
+    display:none;
+    border:1px solid #ccc;
+    background:#fff;
+    padding:12px;
+}
+.tab-content.active{display:block}
+
+h3{margin:0 0 8px;font-size:14px}
+label{font-size:13px;font-weight:bold}
+
+input[type=text],
+input[type=password],
+select{
+    width:100%;
+    padding:8px;
+    border:1px solid #ccc;
+    border-radius:4px;
+    font-size:13px;
+}
+input[type=submit]{
+    padding:8px 20px;
+    background:#007bff;
+    border:none;
+    color:#fff;
+    border-radius:4px;
+    cursor:pointer;
+}
+input[type=submit]:disabled{opacity:.6}
+
+#error,.error{color:red;font-size:13px}
+
+#ap_list a{
+    display:block;
+    padding:4px 0;
+    color:#007bff;
+    text-decoration:none;
+    border-bottom:1px solid #eee;
+}
+
+.toast{
+    position:fixed;
+    top:50%;
+    left:50%;
+    transform:translate(-50%,-50%);
+    background:#000;
+    color:#fff;
+    padding:10px 20px;
+    display:none;
+}
+.toast.show{display:block}
+
+.loading-overlay{
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,.4);
+    display:none;
+    align-items:center;
+    justify-content:center;
+}
+.loading-overlay.show{display:flex}
+.loading-spinner{
+    width:36px;height:36px;
+    border:4px solid #ccc;
+    border-top-color:#007bff;
+    border-radius:50%;
+    animation:spin 1s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+
+</head>
+<body>
+    <div class="toast" id="toast"></div>
+
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <div class="loading-text" data-lang="connecting">Connecting...</div>
+        </div>
+    </div>
+
+    <div class="page">
+        <div class="card">
+            <div class="card-header">
+                <div class="brand">
+                    <div class="brand-logo">AI</div>
+                    <div>
+                        <div class="brand-text-main">Xiaozhi</div>
+                        <div class="brand-text-sub">Wi-Fi device setup</div>
+                    </div>
+                </div>
+
+                <div class="language-switch">
+                    <span>LANG</span>
+                    <select id="language" onchange="changeLanguage()">
+                        
+                        <option value="en-US">English</option>
+                        <option value="vi-VN">Tiếng Việt</option>
+                        
+                    </select>
+                </div>
+            </div>
+
+            <div class="tabs">
+                <div class="tab active" onclick="switchTab('wifi')" data-lang="wifi_tab">Wi-Fi Config</div>
+                <div class="tab" onclick="switchTab('advanced')" data-lang="advanced_tab">Advanced</div>
+            </div>
+
+            <div id="wifi-tab" class="tab-content active">
+                <div id="saved_list_container" style="display: none;">
+                    <h3 data-lang="saved_wifi">Saved Wi-Fi</h3>
+                    <ul id="saved_list">
+                        <li><span>SSID</span></li>
+                    </ul>
+                </div>
+
+                <div>
+                    <h3 data-lang="new_wifi">New Wi-Fi</h3>
+                    <p class="error" id="error"></p>
+                    <form action="/submit" method="post" onsubmit="submitForm(event)">
+                        <p>
+                            <label for="ssid">SSID:</label>
+                            <input type="text" id="ssid" name="ssid" placeholder="Chọn WIFI để kết nối mạng" style="flex:1;" required readonly>
+                        </p>
+                        <p>
+                            <label for="password" data-lang="password">Password:</label>
+                            <input type="password" id="password" name="password" placeholder="Nhập mật khẩu WIFI" style="flex:1;">
+                        </p>
+                        <p style="text-align:center;margin-top:12px;">
+                            <input type="submit" value="Connect" id="button" data-lang-value="connect">
+                        </p>
+                    </form>
+                    <p id="ap_list"></p>
+                </div>
+            </div>
+
+            <div id="advanced-tab" class="tab-content">
+                <form action="/advanced/submit" method="post" onsubmit="submitAdvancedForm(event)">
+                    <div>
+                        <h3 data-lang="advanced_tab">Advanced</h3>
+                        <p class="error" id="advanced_error"></p>
+
+                        <p>
+                            <label for="weather_api_key" data-lang="weather_api_key">Custom WEATHER API Key:</label>
+                            <div style="display:flex;align-items:center;gap:10px;">
+                                <input type="text" id="weather_api_key" name="weather_api_key" placeholder="Nhập API KEY từ https://openweathermap.org/api" style="flex:1;">
+                                <button type="button" onclick="clearWeatherApiKey()" style="padding:5px 10px;border:1px solid rgba(255,255,255,0.25);border-radius:8px;background:rgba(0,0,0,0.4);color:#fff;cursor:pointer;">❌</button>
+                            </div>
+                        </p>
+
+                        <p>
+                            <label for="weather_city" data-lang="weather_city">Custom WEATHER City:</label>
+                            <div style="display:flex;align-items:center;gap:10px;">
+                                <input type="text" id="weather_city" name="weather_city" placeholder="Để trống hoặc nhập tên thành phố" style="flex:1;">
+                                <button type="button" onclick="clearWeatherCity()" style="padding:5px 10px;border:1px solid rgba(255,255,255,0.25);border-radius:8px;background:rgba(0,0,0,0.4);color:#fff;cursor:pointer;">❌</button>
+                            </div>
+                        </p>
+
+                        <p>
+                            <label for="music_url" data-lang="music_url">Custom MUSIC URL:</label>
+                            <div style="display:flex;align-items:center;gap:10px;">
+                                <input type="text" id="music_url" name="music_url" placeholder="Để trống hoặc nhập Custom MUSIC URL" style="flex:1;">
+                                <button type="button" onclick="clearMusicUrl()" style="padding:5px 10px;border:1px solid rgba(255,255,255,0.25);border-radius:8px;background:rgba(0,0,0,0.4);color:#fff;cursor:pointer;">❌</button>
+                            </div>
+                        </p>
+
+                        <p>
+                            <label for="ota_url" data-lang="ota_url">Custom OTA URL:</label>
+                            <div style="display:flex;align-items:center;gap:10px;">
+                                <input type="text" id="ota_url" name="ota_url" placeholder="Nhập Custom OTA URL để Update FW online"  style="flex:1;">
+                                <button type="button" onclick="clearOtaUrl()" style="padding:5px 10px;border:1px solid rgba(255,255,255,0.25);border-radius:8px;background:rgba(0,0,0,0.4);color:#fff;cursor:pointer;">❌</button>
+                            </div>
+                        </p>
+
+                        <p style="display:flex;align-items:center;gap:10px;">
+                            <label for="max_tx_power" data-lang="max_tx_power" style="white-space:nowrap;">Wi-Fi Max TX Power:</label>
+                            <select id="max_tx_power" name="max_tx_power">
+                                <option value="8">2 dBm</option>
+                                <option value="20">5 dBm</option>
+                                <option value="28">7 dBm</option>
+                                <option value="34">8 dBm</option>
+                                <option value="44">11 dBm</option>
+                                <option value="52">13 dBm</option>
+                                <option value="56">14 dBm</option>
+                                <option value="60">15 dBm</option>
+                                <option value="66">16 dBm</option>
+                                <option value="72">18 dBm</option>
+                                <option value="80">20 dBm</option>
+                            </select>
+                        </p>
+
+                        <p style="display:flex;align-items:center;gap:10px;">
+                            <label for="remember_bssid" style="margin:0;">
+                                <span data-lang="remember_bssid">Remember BSSID when connecting to Wi-Fi</span>
+                            </label>
+                            <input type="checkbox" id="remember_bssid" name="remember_bssid">
+                        </p>
+
+                        <p style="display:flex;align-items:center;gap:10px;">
+                            <label for="sleep_mode" style="margin:0;">
+                                <span data-lang="sleep_mode">Enable Sleep Mode</span>
+                            </label>
+                            <input type="checkbox" id="sleep_mode" name="sleep_mode">
+                        </p>
+
+                        <p style="text-align:center;margin-top:12px;">
+                            <input type="submit" value="Save" id="advanced_button" data-lang-value="save">
+                        </p>
+						
+                    </div>
+                </form>
+				
+            </div>
+        </div>
+		<p class="fw-link">
+    <b>Link Update FW: https://xunaugold.com/fw/</b>
+</p>
+    </div>
+
+    <script>
+        const button = document.getElementById('button');
+        const error = document.getElementById('error');
+        const ssid = document.getElementById('ssid');
+        let support5G = false;
+
+        const translations = {
+            
+            'en-US': {
+                title: 'Network Configuration',
+                saved_wifi: 'Saved Wi-Fi',
+                new_wifi: 'New Wi-Fi',
+                password: 'Password:',
+                connect: 'Connect',
+                connecting: 'Connecting...',
+                select_wifi: 'Select a 2.4G Wi-Fi from the list below:',
+                select_wifi_5g: 'Select a Wi-Fi from the list below:',
+                scanning: 'Scanning...',
+                wifi_tab: 'Wi-Fi Config',
+                advanced_tab: 'Advanced',
+                weather_api_key: 'Custom Weather API Key:',
+                weather_city: 'Custom Weather City:',
+                music_url: 'Custom MUSIC URL:',
+                ota_url: 'Custom OTA URL:',
+                max_tx_power: 'Wi-Fi Max TX Power:',
+                remember_bssid: 'Remember BSSID when connecting to Wi-Fi',
+                sleep_mode: 'Enable Sleep Mode',
+                save: 'Save'
+            },
+            'vi-VN': {
+                title: 'Cấu hình mạng',
+                saved_wifi: 'Wi-Fi đã lưu',
+                new_wifi: 'Wi-Fi mới',
+                password: 'Mật khẩu:',
+                connect: 'Kết nối',
+                connecting: 'Đang kết nối...',
+                select_wifi: 'Chọn Wi-Fi 2.4G từ danh sách bên dưới:',
+                select_wifi_5g: 'Chọn Wi-Fi từ danh sách bên dưới:',
+                scanning: 'Đang quét...',
+                wifi_tab: 'Cấu hình Wi-Fi',
+                advanced_tab: 'Tùy chọn',
+                weather_api_key: 'Khóa API Thời tiết tùy chỉnh:',
+                weather_city: 'Thành phố Thời tiết tùy chỉnh:',
+                music_url: 'Địa chỉ MUSIC tùy chỉnh:',
+                ota_url: 'Địa chỉ OTA tùy chỉnh:',
+                max_tx_power: 'Công suất phát Wi-Fi tối đa:',
+                remember_bssid: 'Ghi nhớ BSSID khi kết nối với Wi-Fi',
+                sleep_mode: 'Bật chế độ ngủ',
+                save: 'Lưu'
+            }
+        };
+
+        const languageMap = {
+            'en': 'en-US', 'en-US': 'en-US', 'en-GB': 'en-US', 'en-CA': 'en-US', 'en-AU': 'en-US',
+            'vi': 'vi-VN', 'vi-VN': 'vi-VN'
+        };
+
+        function getSupportedLanguage(lang) {
+            if (languageMap[lang]) return languageMap[lang];
+            const mainLang = lang.split('-')[0];
+            if (languageMap[mainLang]) return languageMap[mainLang];
+            return 'en-US';
+        }
+
+        function changeLanguage() {
+            const lang = document.getElementById('language').value;
+            if (!translations[lang]) {
+                document.getElementById('language').value = 'en-US';
+                return changeLanguage();
+            }
+            document.title = translations[lang].title;
+            document.querySelectorAll('[data-lang]').forEach(element => {
+                const key = element.getAttribute('data-lang');
+                if (translations[lang][key]) {
+                    element.textContent = translations[lang][key];
+                }
+            });
+            document.querySelectorAll('[data-lang-value]').forEach(element => {
+                const key = element.getAttribute('data-lang-value');
+                if (translations[lang][key]) {
+                    element.value = translations[lang][key];
+                }
+            });
+            const apList = document.getElementById('ap_list');
+            if (apList.firstChild) {
+                const selectText = support5G ? translations[lang].select_wifi_5g : translations[lang].select_wifi;
+                apList.firstChild.textContent = selectText;
+            }
+            localStorage.setItem('preferred_language', lang);
+        }
+
+        function renderSavedList(data) {
+            const savedListContainer = document.getElementById('saved_list_container');
+            const savedList = document.getElementById('saved_list');
+            savedList.innerHTML = '';
+            data.forEach((s, index) => {
+                const li = document.createElement('li');
+                let html = `<span>${s}</span>`;
+                if (index > 0) {
+                    html += ` <span>
+                        <button type="button" onclick="setDefaultItem(this, ${index})">⬆️</button>
+                        <button type="button" onclick="deleteItem(this, ${index})">❌</button>
+                    </span>`;
+                } else {
+                    html += ` <span><button type="button" onclick="deleteItem(this, ${index})">❌</button></span>`;
+                }
+                li.innerHTML = html;
+                savedList.appendChild(li);
+            });
+            savedListContainer.style.display = data.length > 0 ? 'block' : 'none';
+        }
+
+        function deleteItem(item, index) {
+            item.disabled = true;
+            fetch('/saved/delete?index=' + index)
+                .then(response => response.json())
+                .then(() => {
+                    loadSavedList();
+                });
+        }
+
+        function setDefaultItem(item, index) {
+            item.disabled = true;
+            fetch('/saved/set_default?index=' + index)
+                .then(response => response.json())
+                .then(() => {
+                    loadSavedList();
+                });
+        }
+
+        function loadSavedList() {
+            fetch('/saved/list')
+                .then(response => response.json())
+                .then(data => {
+                    renderSavedList(data);
+                });
+        }
+
+        function loadAPList() {
+            if (button.disabled) return;
+            const lang = document.getElementById('language').value;
+            const apList = document.getElementById('ap_list');
+            const hasExistingAPs = apList.querySelector('a') !== null;
+            if (!hasExistingAPs) {
+                apList.innerHTML = '<p class="scanning">' + translations[lang].scanning + '</p>';
+            }
+            fetch('/scan')
+                .then(response => response.json())
+                .then(data => {
+                    support5G = data.support_5g;
+                    const selectText = support5G ? translations[lang].select_wifi_5g : translations[lang].select_wifi;
+                    apList.innerHTML = '<p>' + selectText + '</p>';
+                    data.aps.forEach(ap => {
+                        const link = document.createElement('a');
+                        link.href = '#';
+                        link.textContent = ap.ssid + ' (' + ap.rssi + ' dBm)';
+                        if (ap.authmode === 0) {
+                            link.textContent += ' 🌐';
+                        } else {
+                            link.textContent += ' 🔒';
+                        }
+                        link.addEventListener('click', () => {
+                            ssid.value = ap.ssid;
+                        });
+                        apList.appendChild(link);
+                    });
+                    setTimeout(loadAPList, 5000);
+                })
+                .catch(() => {
+                    setTimeout(loadAPList, 5000);
+                });
+        }
+
+        async function submitForm(event) {
+            event.preventDefault();
+            button.disabled = true;
+            error.textContent = '';
+            const loadingOverlay = document.getElementById('loadingOverlay');
+            loadingOverlay.classList.add('show');
+            const payload = {
+                ssid: ssid.value,
+                password: document.getElementById('password').value
+            };
+            try {
+                const response = await fetch('/submit', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+                const data = await response.json();
+                if (!data.success) {
+                    throw new Error(data.error || 'Connection failed');
+                }
+                button.disabled = false;
+                window.location.href = '/done.html';
+            } catch (err) {
+                loadingOverlay.classList.remove('show');
+                error.textContent = err.message;
+                button.disabled = false;
+            }
+        }
+
+        async function submitAdvancedForm(event) {
+            event.preventDefault();
+            const advancedButton = document.getElementById('advanced_button');
+            const advancedError = document.getElementById('advanced_error');
+            advancedButton.disabled = true;
+            advancedError.textContent = '';
+            const config = {
+                weather_api_key: document.getElementById('weather_api_key').value,
+                weather_city: document.getElementById('weather_city').value,
+                music_url: document.getElementById('music_url').value,
+                ota_url: document.getElementById('ota_url').value,
+                max_tx_power: parseInt(document.getElementById('max_tx_power').value),
+                remember_bssid: document.getElementById('remember_bssid').checked,
+                sleep_mode: document.getElementById('sleep_mode').checked
+            };
+            try {
+                const response = await fetch('/advanced/submit', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(config)
+                });
+                const data = await response.json();
+                if (!data.success) {
+                    throw new Error(data.error || 'Save failed');
+                }
+                advancedButton.disabled = false;
+                showToast('Configuration saved');
+            } catch (err) {
+                advancedError.textContent = err.message;
+                advancedButton.disabled = false;
+            }
+        }
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.getElementById(tabName + '-tab').classList.add('active');
+            document.querySelector(`.tab[onclick="switchTab('${tabName}')"]`).classList.add('active');
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        async function loadAdvancedConfig() {
+            try {
+                const response = await fetch('/advanced/config');
+                const data = await response.json();
+                if (data.weather_api_key) {
+                    document.getElementById('weather_api_key').value = data.weather_api_key;
+                }
+                if (data.weather_city) {
+                    document.getElementById('weather_city').value = data.weather_city;
+                }
+                if (data.music_url) {
+                    document.getElementById('music_url').value = data.music_url;
+                }
+                if (data.ota_url) {
+                    document.getElementById('ota_url').value = data.ota_url;
+                }
+                if (data.max_tx_power) {
+                    document.getElementById('max_tx_power').value = data.max_tx_power;
+                }
+                if (data.remember_bssid !== undefined) {
+                    document.getElementById('remember_bssid').checked = data.remember_bssid;
+                }
+                if (data.sleep_mode !== undefined) {
+                    document.getElementById('sleep_mode').checked = data.sleep_mode;
+                }
+            } catch (e) {
+            }
+        }
+
+        function clearWeatherApiKey() {
+            document.getElementById('weather_api_key').value = '';
+        }
+
+        function clearWeatherCity() {
+            document.getElementById('weather_city').value = '';
+        }
+
+        function clearMusicUrl() {
+            document.getElementById('music_url').value = '';
+        }
+
+        function clearOtaUrl() {
+            document.getElementById('ota_url').value = '';
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const langParam = urlParams.get('lang');
+            const browserLang = navigator.language || navigator.userLanguage;
+            const savedLang = langParam ||
+                localStorage.getItem('preferred_language') ||
+                getSupportedLanguage(browserLang);
+            document.getElementById('language').value = savedLang;
+            changeLanguage();
+            loadSavedList();
+            loadAPList();
+            loadAdvancedConfig();
+        });
+
+        window.addEventListener('pageshow', (event) => {
+            if (event.persisted) {
+                loadSavedList();
+            }
+        });
+
+        ssid.addEventListener('touchstart', () => {
+            ssid.removeAttribute('readonly');
+            ssid.focus();
+        }, { once: true });
+    </script>
+	
+
+</body>
+</html>
